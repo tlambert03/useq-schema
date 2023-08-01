@@ -46,5 +46,5 @@ __all__ = [
 ]
 
 
-MDAEvent.model_rebuild(MDASequence=MDASequence)
-Position.model_rebuild(MDASequence=MDASequence)
+MDAEvent.model_rebuild(MDASequence=MDASequence)  # type: ignore
+Position.model_rebuild(MDASequence=MDASequence)  # type: ignore

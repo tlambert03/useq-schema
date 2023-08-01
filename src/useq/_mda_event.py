@@ -6,8 +6,10 @@ from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     List,
+    Literal,
     Mapping,
     NamedTuple,
     Optional,
@@ -23,7 +25,12 @@ from useq._base_model import UseqModel
 try:
     from pydantic import field_serializer
 except ImportError:
-    field_serializer = None  # type: ignore
+
+    def field_serializer(  # type: ignore[no-redef]
+        field: str, mode: Literal["plain", "wrap"] = "plain"
+    ) -> Callable[[Any], Any]:
+        return lambda f: f
+
 
 if TYPE_CHECKING:
     from useq._mda_sequence import MDASequence
@@ -73,7 +80,9 @@ class PropertyTuple(NamedTuple):
 
 
 def _float_or_none(v: Any) -> Optional[float]:
-    return float(v) if v is not None else v
+    if v is None:
+        return None
+    return float(v)
 
 
 class MDAEvent(UseqModel):
@@ -170,8 +179,7 @@ class MDAEvent(UseqModel):
 
         return to_pycromanager(self)
 
-    if field_serializer is not None:
-        _si = field_serializer("index", mode="plain")(lambda v: dict(v))
-        _sx = field_serializer("x_pos", mode="plain")(_float_or_none)
-        _sy = field_serializer("y_pos", mode="plain")(_float_or_none)
-        _sz = field_serializer("z_pos", mode="plain")(_float_or_none)
+    _si = field_serializer("index", mode="plain")(lambda v: dict(v))
+    _sx = field_serializer("x_pos", mode="plain")(_float_or_none)
+    _sy = field_serializer("y_pos", mode="plain")(_float_or_none)
+    _sz = field_serializer("z_pos", mode="plain")(_float_or_none)

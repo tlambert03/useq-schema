@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, cast
 
 from pydantic import PrivateAttr
 
@@ -26,7 +26,7 @@ class AutoFocusPlan(FrozenModel):
         """Return a [`useq.HardwareAutofocus`][] for this autofocus plan."""
         return HardwareAutofocus(
             autofocus_device_name=self.autofocus_device_name,
-            autofocus_motor_offset=self.autofocus_motor_offset,
+            autofocus_motor_offset=cast(float, self.autofocus_motor_offset),
         )
 
     def event(self, event: MDAEvent) -> Optional[MDAEvent]:
