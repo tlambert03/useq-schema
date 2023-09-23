@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import re
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, NamedTuple, TypeVar
@@ -17,14 +18,29 @@ if TYPE_CHECKING:
 
 
 # could be an enum, but this more easily allows Axis.Z to be a string
-class Axis:
+class Axis(str, enum.Enum):
     """Recognized axis names."""
 
-    TIME: Final[Literal["t"]] = "t"
-    POSITION: Final[Literal["p"]] = "p"
-    GRID: Final[Literal["g"]] = "g"
-    CHANNEL: Final[Literal["c"]] = "c"
-    Z: Final[Literal["z"]] = "z"
+    TIME: Literal["t"] = "t"
+    POSITION: Literal["p"] = "p"
+    GRID: Literal["g"] = "g"
+    CHANNEL: Literal["c"] = "c"
+    Z: Literal["z"] = "z"  # image depth, along optical axis
+    X: Literal["x"] = "x"  # fast axis, image width
+    Y: Literal["y"] = "y"  # slow axis, image height
+    ANGLE: Literal["a"] = "a"  # rotation angle
+    PHASE: Literal["h"] = "h"  # phase index
+    ROW: Literal["k"] = "k"  # row index
+    COLUMN: Literal["l"] = "l"  # column index
+    OTHER: Literal["q"] = "q"  # other axis
+
+    # aliases
+    WIDTH = X  # image width
+    HEIGHT = Y  # image height
+    DEPTH = Z  # image depth, along optical axis
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 # note: order affects the default axis_order in MDASequence

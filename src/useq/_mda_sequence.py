@@ -272,7 +272,7 @@ class MDASequence(UseqModel):
             )
         ):
             raise ValueError(
-                f"{Axis.Z!r} cannot precede {Axis.POSITION!r} in acquisition order if "
+                f"'{Axis.Z}' cannot precede '{Axis.POSITION}' in acquisition order if "
                 "any position specifies a z_plan"
             )
 
@@ -360,7 +360,7 @@ class MDASequence(UseqModel):
             Axis.Z: self.z_plan,
             Axis.CHANNEL: self.channels,
             Axis.GRID: self.grid_plan,
-        }[axis]
+        }[Axis(axis)]
         if plan:
             yield from plan
 
