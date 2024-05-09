@@ -150,3 +150,34 @@ def test_pydantic_compat(mda1: useq.MDASequence) -> None:
 
     assert mda1.model_dump()
     assert mda1.dict()
+
+
+def test_jagged_sizes() -> None:
+    seq = useq.MDASequence(
+        channels=["DAPI", {"config": "FITC", "do_stack": False}],
+        stage_positions=[
+            (1, 2, 3),
+            {
+                "x": 4,
+                "y": 5,
+                "z": 6,
+                "sequence": useq.MDASequence(
+                    channels=["Cy5"], grid_plan={"rows": 2, "columns": 1}
+                ),
+            },
+        ],
+        time_plan={"interval": 0, "loops": 3},
+        z_plan={"range": 2, "step": 0.7},
+    )
+
+    assert seq.jagged_sizes() == {
+        "p": [
+            {"t": 3, "c": [{"z": 4}, {"z": 1}]},
+            {"t": 3, "g": 2, "c": [{"z": 4}]},
+        ]
+    }
+
+    assert seq.jagged_sizes(compressed=True) == {
+        "t": 3,
+        "p": [{"c": [{"z": 4}, {"z": 1}]}, {"g": 2, "c": [{"z": 4}]}],
+    }

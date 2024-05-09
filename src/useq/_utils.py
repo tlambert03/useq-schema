@@ -237,3 +237,69 @@ iso8601_duration_re = re.compile(
     r")?"
     r"$"
 )
+
+
+def jagged_sizes(
+    seq: useq.MDASequence, compressed: bool = False
+) -> dict[str, int | list[dict[str, int]]]:
+    """Sizes of the sequence, including jagged sizes for nested sequences.
+
+    If any of the axes (such as stage_positions) have nested sequences, the sizes
+    for that dimension will be a list of sizes ({axis: size}) for each index of
+    in that axis.
+
+    Examples
+    --------
+    >>> seq = useq.MDASequence(
+            channels=["DAPI", "FITC"],
+            stage_positions=[
+                (1, 2, 3),
+                {
+                    "x": 4,
+                    "y": 5,
+                    "z": 6,
+                    "sequence": useq.MDASequence(
+                        channels=["Cy5"], grid_plan={"rows": 2, "columns": 1}
+                    ),
+                },
+            ],
+            time_plan={"interval": 0, "loops": 3},
+            z_plan={"range": 2, "step": 0.7},
+        )
+
+    >>> jagged_sizes(seq)
+    {'p': [{'t': 3, 'c': 2, 'z': 4}, {'t': 3, 'g': 2, 'c': 1, 'z': 4}]}
+
+    # compressed=True will remove common values from the nested sizes
+    >>> jagged_sizes(seq, compressed=True)
+    {'t': 3, 'z': 4, 'p': [{'c': 2}, {'g': 2, 'c': 1}]}
+    """
+    sizes: dict = dict(seq.sizes)
+    if any(p.sequence is not None for p in seq.stage_positions):
+        sub_sizes: list[dict[str, int]] = []
+        for p in seq.stage_positions:
+            # if p.sequence is None, inherit sizes from the parent sequence
+            # if a size doesn't exist, omit it from the sub-sizes
+            items = sizes.items() if p.sequence is None else p.sequence.sizes.items()
+            sub_sizes.append(
+                {k: val for k, v in items if k != "p" and (val := v or sizes.get(k))}
+            )
+        sizes = {"p": sub_sizes}
+
+    if not compressed:
+        return sizes
+
+    for v in list(sizes.values()):
+        if isinstance(v, list) and v:
+            # Find common values across all dictionaries in the list
+            common_vals = {
+                k: vv for k, vv in v[0].items() if all(p.get(k) == vv for p in v[1:])
+            }
+            # Remove common values from each dictionary in the list
+            for sub_item in v:
+                if isinstance(sub_item, dict):  # (it will be)
+                    for common_key in common_vals:
+                        sub_item.pop(common_key, None)
+            # Place common values in the top-level dictionary
+            sizes.update(common_vals)
+    return sizes

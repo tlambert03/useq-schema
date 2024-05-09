@@ -421,6 +421,11 @@ class MDASequence(UseqModel):
             self._sizes = {k: len(list(self.iter_axis(k))) for k in self.axis_order}
         return self._sizes
 
+    def jagged_sizes(self, compressed: bool = False) -> dict:
+        from useq._utils import jagged_sizes
+
+        return jagged_sizes(self, compressed=compressed)
+
     @property
     def used_axes(self) -> str:
         """Single letter string of axes used in this sequence, e.g. `ztc`."""
