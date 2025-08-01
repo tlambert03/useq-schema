@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from pydantic import Field, model_validator
 
-from useq._base_model import FrozenModel
+from useq._common._base_model import FrozenModel
 
 
 class Channel(FrozenModel):

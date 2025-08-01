@@ -1,24 +1,20 @@
 import itertools
 import json
-from collections.abc import Sequence
-from typing import Any
 
 import numpy as np
 import pytest
 from pydantic import BaseModel, ValidationError
 
 from useq import (
+    CustomAction,
+    HardwareAutofocus,
     MDAEvent,
     MDASequence,
+    SLMImage,
     TIntervalDuration,
     ZAboveBelow,
     ZRangeAround,
 )
-from useq._actions import CustomAction, HardwareAutofocus
-from useq._mda_event import SLMImage
-
-_T = list[tuple[Any, Sequence[float]]]
-
 
 all_orders = ["".join(i) for i in itertools.permutations("tpgcz")]
 

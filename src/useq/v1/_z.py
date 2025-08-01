@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable, Union
 import numpy as np
 from pydantic import field_validator
 
-from useq._base_model import FrozenModel
+from useq._common._base_model import FrozenModel
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
@@ -37,10 +37,6 @@ class ZPlan(FrozenModel):
         return [float(x) for x in np.arange(start, stop, step)]
 
     def num_positions(self) -> int:
-        return len(self)
-
-    def __len__(self) -> int:
-        """Get the number of Z positions."""
         start, stop, step = self._start_stop_step()
         if step == 0:
             return 1
@@ -160,7 +156,7 @@ class ZRelativePositions(ZPlan):
     def positions(self) -> Sequence[float]:
         return self.relative
 
-    def __len__(self) -> int:
+    def num_positions(self) -> int:
         return len(self.relative)
 
 
@@ -183,7 +179,7 @@ class ZAbsolutePositions(ZPlan):
     def positions(self) -> Sequence[float]:
         return self.absolute
 
-    def __len__(self) -> int:
+    def num_positions(self) -> int:
         return len(self.absolute)
 
     @property

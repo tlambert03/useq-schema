@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 # transformers.py
-from useq._enums import Axis
-from useq._mda_event import MDAEvent
+from useq._common._enums import Axis
+from useq._common._mda_event import MDAEvent
 from useq.v2._axes_iterator import EventTransform  # helper you already have
 
 if TYPE_CHECKING:

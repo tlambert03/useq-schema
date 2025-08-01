@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import useq
-from useq import _plate, _plate_registry
+from useq._common import _plate, _plate_registry
 
 
 def test_plate_plan() -> None:

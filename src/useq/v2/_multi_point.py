@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
 
-    from useq._mda_event import MDAEvent
+    from useq._common._mda_event import MDAEvent
 
 
 class MultiPositionPlan(AxisIterable[Position]):

@@ -4,7 +4,7 @@ import re
 from datetime import timedelta
 from typing import TYPE_CHECKING, NamedTuple
 
-from useq._time import MultiPhaseTimePlan
+from useq.v1._time import MultiPhaseTimePlan
 
 if TYPE_CHECKING:
     from typing import TypeVar
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
     import useq
-    from useq._time import SinglePhaseTimePlan
+    from useq.v1._time import SinglePhaseTimePlan
 
     KT = TypeVar("KT")
     VT = TypeVar("VT")

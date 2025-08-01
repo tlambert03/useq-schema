@@ -16,10 +16,10 @@ from pydantic import Field, TypeAdapter, field_validator, model_validator
 from typing_extensions import deprecated
 
 from useq import v2
-from useq._enums import AXES, Axis
+from useq._common._enums import AXES, Axis
+from useq._common._mda_event import MDAEvent
 from useq._hardware_autofocus import AnyAutofocusPlan, AxesBasedAF
-from useq._mda_event import MDAEvent
-from useq._mda_sequence import MDASequence as MDASequenceV1
+from useq.v1._mda_sequence import MDASequence as MDASequenceV1
 from useq.v2 import _position
 from useq.v2._axes_iterator import (
     AxisIterable,

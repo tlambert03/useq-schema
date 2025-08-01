@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, get_args
 import pytest
 from pydantic import TypeAdapter
 
-from useq._point_visiting import _rect_indices, _spiral_indices
+from useq._common._point_visiting import _rect_indices, _spiral_indices
 from useq.v2 import (
     GridFromEdges,
     GridRowsColumns,

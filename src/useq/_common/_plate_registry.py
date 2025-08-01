@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Required
 
-    from useq._plate import WellPlate
+    from useq._common._plate import WellPlate
 
     class KnownPlateKwargs(TypedDict, total=False):
         rows: Required[int]

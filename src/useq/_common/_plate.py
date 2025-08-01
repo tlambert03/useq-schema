@@ -1,34 +1,22 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
 from functools import cached_property
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Any,
-    Union,
-    cast,
-    overload,
-)
+from typing import TYPE_CHECKING, Annotated, Any, Union, overload
 
 import numpy as np
 from annotated_types import Gt
 from pydantic import (
-    Field,
     ValidationInfo,
     ValidatorFunctionWrapHandler,
     field_validator,
     model_validator,
 )
 
-from useq._base_model import FrozenModel, UseqModel
-from useq._enums import Shape
-from useq._grid import RandomPoints, RelativeMultiPointPlan
-from useq._plate_registry import _PLATE_REGISTRY
-from useq._position import Position, PositionBase, RelativePosition
+from useq._common._base_model import FrozenModel, UseqModel
+from useq._common._plate_registry import _PLATE_REGISTRY
 
 if TYPE_CHECKING:
-    from pydantic_core import core_schema
+    from collections.abc import Iterable, Sequence
 
     Index = Union[int, list[int], slice]
     IndexExpression = Union[tuple[Index, ...], Index]
@@ -123,7 +111,7 @@ class WellPlate(FrozenModel):
         return WellPlate.model_validate(obj)
 
 
-class WellPlatePlan(UseqModel, Sequence[Position]):
+class WellPlatePlan(UseqModel):
     """A plan for acquiring images from a multi-well plate.
 
     Parameters
@@ -162,9 +150,6 @@ class WellPlatePlan(UseqModel, Sequence[Position]):
     a1_center_xy: tuple[float, float]
     rotation: Union[float, None] = None
     selected_wells: Union[tuple[tuple[int, ...], tuple[int, ...]], None] = None
-    well_points_plan: RelativeMultiPointPlan = Field(
-        default_factory=RelativePosition, union_mode="left_to_right"
-    )
 
     def __repr_args__(self) -> Iterable[tuple[str | None, Any]]:
         for item in super().__repr_args__():
@@ -178,32 +163,6 @@ class WellPlatePlan(UseqModel, Sequence[Position]):
     @classmethod
     def _validate_plate(cls, value: Any) -> Any:
         return WellPlate.validate_plate(value)  # type: ignore [operator]
-
-    @field_validator("well_points_plan", mode="wrap")
-    @classmethod
-    def _validate_well_points_plan(
-        cls,
-        value: Any,
-        handler: core_schema.ValidatorFunctionWrapHandler,
-        info: core_schema.ValidationInfo,
-    ) -> Any:
-        value = handler(value)
-        if plate := info.data.get("plate"):
-            if isinstance(value, RandomPoints):
-                plate = cast("WellPlate", plate)
-                kwargs = value.model_dump(mode="python")
-                if value.max_width == np.inf:
-                    well_size_x = plate.well_size[0] * 1000  # convert to µm
-                    kwargs["max_width"] = well_size_x - (value.fov_width or 0.1)
-                if value.max_height == np.inf:
-                    well_size_y = plate.well_size[1] * 1000  # convert to µm
-                    kwargs["max_height"] = well_size_y - (value.fov_height or 0.1)
-                if "shape" not in value.__pydantic_fields_set__:
-                    kwargs["shape"] = (
-                        Shape.ELLIPSE if plate.circular_wells else Shape.RECTANGLE
-                    )
-                value = RandomPoints(**kwargs)
-        return value
 
     @field_validator("rotation", mode="before")
     @classmethod
@@ -259,10 +218,6 @@ class WellPlatePlan(UseqModel, Sequence[Position]):
         rads = np.radians(self.rotation)
         return np.array([[np.cos(rads), np.sin(rads)], [-np.sin(rads), np.cos(rads)]])
 
-    def __iter__(self) -> Iterator[Position]:  # type: ignore
-        """Iterate over the selected positions."""
-        yield from self.image_positions
-
     def __len__(self) -> int:
         """Return the total number of points (stage positions) to be acquired."""
         if self.selected_wells is None:
@@ -276,22 +231,19 @@ class WellPlatePlan(UseqModel, Sequence[Position]):
         return True
 
     @overload
-    def __getitem__(self, index: int) -> Position: ...
+    def __getitem__(self, index: int) -> Any: ...
 
     @overload
-    def __getitem__(self, index: slice) -> Sequence[Position]: ...
+    def __getitem__(self, index: slice) -> Sequence[Any]: ...
 
-    def __getitem__(self, index: int | slice) -> Position | Sequence[Position]:
+    def __getitem__(self, index: int | slice) -> Any | Sequence[Any]:
         """Return the selected position(s) at the given index."""
-        return self.image_positions[index]
+        raise NotImplementedError
 
     @property
     def num_points_per_well(self) -> int:
         """Return the number of points per well."""
-        if isinstance(self.well_points_plan, PositionBase):
-            return 1
-        else:
-            return self.well_points_plan.num_positions()
+        raise NotImplementedError
 
     @property
     def all_well_indices(self) -> np.ndarray:
@@ -333,39 +285,24 @@ class WellPlatePlan(UseqModel, Sequence[Position]):
         return (transformed[:2].T).reshape(coords.shape)  # type: ignore[no-any-return]
 
     @property
-    def all_well_positions(self) -> Sequence[Position]:
+    def all_well_positions(self) -> Sequence:
         """Return all wells (centers) as Position objects."""
-        return [
-            Position(x=x * 1000, y=y * 1000, name=name)  # convert to µm
-            for (y, x), name in zip(
-                self.all_well_coordinates, self.all_well_names.reshape(-1)
-            )
-        ]
+        raise NotImplementedError
 
     @cached_property
-    def selected_well_positions(self) -> Sequence[Position]:
+    def selected_well_positions(self) -> Sequence:
         """Return selected wells (centers) as Position objects."""
-        return [
-            Position(x=x * 1000, y=y * 1000, name=name)  # convert to µm
-            for (y, x), name in zip(
-                self.selected_well_coordinates, self.selected_well_names
-            )
-        ]
+        raise NotImplementedError
 
     @cached_property
-    def image_positions(self) -> Sequence[Position]:
+    def image_positions(self) -> Sequence:
         """All image positions.
 
         This includes *both* selected wells and the image positions within each well
         based on the `well_points_plan`.  This is the primary property that gets used
         when iterating over the plan.
         """
-        wpp = self.well_points_plan
-        offsets = [wpp] if isinstance(wpp, RelativePosition) else wpp
-        pos: list[Position] = []
-        for well in self.selected_well_positions:
-            pos.extend(well + offset for offset in offsets)
-        return pos
+        raise NotImplementedError
 
     @property
     def affine_transform(self) -> np.ndarray:

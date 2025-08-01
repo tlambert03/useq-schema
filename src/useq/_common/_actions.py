@@ -4,7 +4,7 @@ from pydantic import ConfigDict, Field, TypeAdapter, field_validator
 from pydantic_core import PydanticSerializationError
 from typing_extensions import Literal
 
-from useq._base_model import FrozenModel
+from useq._common._base_model import FrozenModel
 
 _dict_adapter = TypeAdapter(dict, config=ConfigDict(defer_build=True))
 

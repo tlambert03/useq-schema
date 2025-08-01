@@ -7,12 +7,12 @@ import numpy as np
 from pydantic import Field, model_validator
 
 from useq import Axis
-from useq._base_model import FrozenModel
+from useq._common._base_model import FrozenModel
 from useq.v2._axes_iterator import AxisIterable
 from useq.v2._position import Position
 
 if TYPE_CHECKING:
-    from useq._mda_event import MDAEvent
+    from useq._common._mda_event import MDAEvent
     from useq.v2._mda_sequence import MDASequence
 
 

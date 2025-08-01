@@ -3,9 +3,17 @@
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from useq._actions import AcquireImage, Action, CustomAction, HardwareAutofocus
 from useq._channel import Channel
-from useq._enums import Axis, RelativeTo, Shape
+from useq._common._actions import AcquireImage, Action, CustomAction, HardwareAutofocus
+from useq._common._enums import Axis, RelativeTo, Shape
+from useq._common._mda_event import Channel as EventChannel
+from useq._common._mda_event import MDAEvent, MutableMDAEvent, PropertyTuple, SLMImage
+from useq._common._plate import WellPlate
+from useq._common._plate_registry import (
+    register_well_plates,
+    registered_well_plate_keys,
+)
+from useq._common._point_visiting import OrderMode, TraversalOrder
 from useq._grid import (
     GridFromEdges,
     GridRowsColumns,
@@ -15,21 +23,17 @@ from useq._grid import (
     RelativeMultiPointPlan,
 )
 from useq._hardware_autofocus import AnyAutofocusPlan, AutoFocusPlan, AxesBasedAF
-from useq._mda_event import Channel as EventChannel
-from useq._mda_event import MDAEvent, MutableMDAEvent, PropertyTuple, SLMImage
-from useq._mda_sequence import MDASequence
-from useq._plate import WellPlate, WellPlatePlan
-from useq._plate_registry import register_well_plates, registered_well_plate_keys
-from useq._point_visiting import OrderMode, TraversalOrder
-from useq._position import AbsolutePosition, Position, RelativePosition
-from useq._time import (
+from useq.v1._mda_sequence import MDASequence
+from useq.v1._plate import WellPlatePlan
+from useq.v1._position import AbsolutePosition, Position, RelativePosition
+from useq.v1._time import (
     AnyTimePlan,
     MultiPhaseTimePlan,
     TDurationLoops,
     TIntervalDuration,
     TIntervalLoops,
 )
-from useq._z import (
+from useq.v1._z import (
     AnyZPlan,
     ZAboveBelow,
     ZAbsolutePositions,

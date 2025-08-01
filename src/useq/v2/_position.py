@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional, SupportsIndex
 import numpy as np
 from pydantic import model_validator
 
-from useq._base_model import MutableModel
+from useq._common._base_model import MutableModel
 
 if TYPE_CHECKING:
     from typing_extensions import Self

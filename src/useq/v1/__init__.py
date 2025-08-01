@@ -1,25 +1,20 @@
-"""New MDASequence API."""
+"""v1 namespace for useq.  Original API."""
 
-from typing import Any
-
-import pydantic
-from typing_extensions import deprecated
+import warnings
+from typing import TYPE_CHECKING, Any
 
 from useq._channel import Channel
 from useq._common._actions import AcquireImage, Action, CustomAction, HardwareAutofocus
 from useq._common._enums import Axis, RelativeTo, Shape
 from useq._common._mda_event import Channel as EventChannel
 from useq._common._mda_event import MDAEvent, MutableMDAEvent, PropertyTuple, SLMImage
-from useq._common._plate import WellPlate, WellPlatePlan
+from useq._common._plate import WellPlate
 from useq._common._plate_registry import (
     register_well_plates,
     registered_well_plate_keys,
 )
 from useq._common._point_visiting import OrderMode, TraversalOrder
-from useq._hardware_autofocus import AnyAutofocusPlan, AutoFocusPlan, AxesBasedAF
-from useq.v2._axes_iterator import AxisIterable, MultiAxisSequence, SimpleValueAxis
-from useq.v2._channels import ChannelsPlan
-from useq.v2._grid import (
+from useq._grid import (
     GridFromEdges,
     GridRowsColumns,
     GridWidthHeight,
@@ -27,42 +22,28 @@ from useq.v2._grid import (
     RandomPoints,
     RelativeMultiPointPlan,
 )
-from useq.v2._iterate import iterate_multi_dim_sequence
-from useq.v2._mda_sequence import MDASequence
-from useq.v2._multi_point import MultiPositionPlan
-from useq.v2._position import Position
-from useq.v2._stage_positions import StagePositions
-from useq.v2._time import (
+from useq._hardware_autofocus import AnyAutofocusPlan, AutoFocusPlan, AxesBasedAF
+from useq.v1._mda_sequence import MDASequence
+from useq.v1._plate import WellPlatePlan
+from useq.v1._position import AbsolutePosition, Position, RelativePosition
+from useq.v1._time import (
     AnyTimePlan,
     MultiPhaseTimePlan,
-    SinglePhaseTimePlan,
     TDurationLoops,
-    TimePlan,
     TIntervalDuration,
     TIntervalLoops,
 )
-from useq.v2._z import (
+from useq.v1._z import (
     AnyZPlan,
     ZAboveBelow,
     ZAbsolutePositions,
-    ZPlan,
     ZRangeAround,
     ZRelativePositions,
     ZTopBottom,
 )
 
-AbsolutePosition = Position
-
-
-@deprecated(
-    "The RelativePosition class is deprecated. "
-    "Use Position with is_relative=True instead.",
-    category=DeprecationWarning,
-    stacklevel=2,
-)
-def RelativePosition(**kwargs: Any) -> Position:
-    """Create a relative position."""
-    return Position(**kwargs, is_relative=True)
+if TYPE_CHECKING:
+    from useq._grid import GridRelative
 
 
 __all__ = [
@@ -75,21 +56,18 @@ __all__ = [
     "AutoFocusPlan",
     "AxesBasedAF",
     "Axis",
-    "AxisIterable",
     "Channel",
-    "ChannelsPlan",
     "CustomAction",
     "EventChannel",
     "GridFromEdges",
+    "GridRelative",
     "GridRowsColumns",
     "GridWidthHeight",
     "HardwareAutofocus",
     "MDAEvent",
     "MDASequence",
-    "MultiAxisSequence",
     "MultiPhaseTimePlan",
     "MultiPointPlan",
-    "MultiPositionPlan",
     "MutableMDAEvent",
     "OrderMode",
     "Position",  # alias for AbsolutePosition
@@ -100,36 +78,44 @@ __all__ = [
     "RelativeTo",
     "SLMImage",
     "Shape",
-    "SimpleValueAxis",
-    "SinglePhaseTimePlan",
-    "StagePositions",
     "TDurationLoops",
     "TIntervalDuration",
     "TIntervalLoops",
-    "TimePlan",
     "TraversalOrder",
     "WellPlate",
     "WellPlatePlan",
     "ZAboveBelow",
     "ZAbsolutePositions",
-    "ZPlan",
-    "ZRangeAround",
     "ZRangeAround",
     "ZRelativePositions",
     "ZTopBottom",
-    "ZTopBottom",
-    "iterate_multi_dim_sequence",
     "register_well_plates",
     "registered_well_plate_keys",
 ]
 
 
-for item in list(globals().values()):
-    if (
-        isinstance(item, type)
-        and issubclass(item, pydantic.BaseModel)
-        and item is not pydantic.BaseModel
-    ):
-        item.model_rebuild()
+MDAEvent.model_rebuild()
+Position.model_rebuild()
+WellPlatePlan.model_rebuild()
+RelativePosition.model_rebuild()
 
-del pydantic
+
+def __getattr__(name: str) -> Any:
+    if name == "GridRelative":
+        from useq._grid import GridRowsColumns
+
+        # warnings.warn(
+        #     "useq.GridRelative has been renamed to useq.GridFromEdges",
+        #     DeprecationWarning,
+        #     stacklevel=2,
+        # )
+
+        return GridRowsColumns
+    if name == "AnyGridPlan":  # pragma: no cover
+        warnings.warn(
+            "useq.AnyGridPlan has been renamed to useq.MultiPointPlan",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return MultiPointPlan
+    raise AttributeError(f"module {__name__} has no attribute {name}")

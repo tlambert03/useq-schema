@@ -172,7 +172,7 @@ from typing import (
 
 from pydantic import BaseModel, Field, field_validator
 
-from useq._base_model import MutableModel
+from useq._common._base_model import MutableModel
 from useq.v2._importable_object import ImportableObject
 
 if TYPE_CHECKING:

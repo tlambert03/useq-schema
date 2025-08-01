@@ -1,26 +1,19 @@
 from __future__ import annotations
 
+import contextlib
 import math
 import warnings
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    Any,
-    Callable,
-    Literal,
-    Optional,
-    Union,
-)
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Union
 
 import numpy as np
 from annotated_types import Ge, Gt
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from typing_extensions import Self, TypeAlias, deprecated
 
 from useq import Axis
-from useq._enums import RelativeTo, Shape
-from useq._grid import _GridMixin
-from useq._point_visiting import TraversalOrder
+from useq._common._enums import RelativeTo, Shape
+from useq._common._point_visiting import OrderMode, TraversalOrder
 from useq.v2._multi_point import MultiPositionPlan
 from useq.v2._position import Position
 
@@ -37,7 +30,7 @@ MIN_RANDOM_POINTS = 10000
 
 
 # used in iter_indices below, to determine the order in which indices are yielded
-class _GridPlan(_GridMixin, MultiPositionPlan):
+class _GridPlan(MultiPositionPlan):
     """Base class for all grid plans.
 
     Attributes
@@ -61,6 +54,79 @@ class _GridPlan(_GridMixin, MultiPositionPlan):
     """
 
     axis_key: Literal[Axis.GRID] = Field(default=Axis.GRID, frozen=True, init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+    overlap: tuple[float, float] = Field(default=(0.0, 0.0), frozen=True)
+    mode: OrderMode = Field(default=OrderMode.row_wise_snake, frozen=True)
+    fov_width: Optional[float] = None
+    fov_height: Optional[float] = None
+
+    @property
+    def is_relative(self) -> bool:
+        return True
+
+    @field_validator("overlap", mode="before")
+    def _validate_overlap(cls, v: Any) -> tuple[float, float]:
+        with contextlib.suppress(TypeError, ValueError):
+            v = float(v)
+        if isinstance(v, float):
+            return (v, v)
+        if isinstance(v, Sequence) and len(v) == 2:
+            return float(v[0]), float(v[1])
+        raise ValueError(  # pragma: no cover
+            "overlap must be a float or a tuple of two floats"
+        )
+
+    def _offset_x(self, dx: float) -> float:
+        raise NotImplementedError
+
+    def _offset_y(self, dy: float) -> float:
+        raise NotImplementedError
+
+    def _nrows(self, dy: float) -> int:
+        """Return the number of rows, given a grid step size."""
+        raise NotImplementedError
+
+    def _ncolumns(self, dx: float) -> int:
+        """Return the number of columns, given a grid step size."""
+        raise NotImplementedError
+
+    def __iter__(self) -> Iterator[Position]:  # type: ignore [override]
+        yield from self.iter_grid_positions()
+
+    def _step_size(self, fov_width: float, fov_height: float) -> tuple[float, float]:
+        dx = fov_width - (fov_width * self.overlap[0]) / 100
+        dy = fov_height - (fov_height * self.overlap[1]) / 100
+        return dx, dy
+
+    def _build_position(self, **kwargs: Any) -> Position:
+        """Build a position object for this grid plan."""
+        return Position(**kwargs, is_relative=self.is_relative)
+
+    def iter_grid_positions(
+        self,
+        fov_width: float | None = None,
+        fov_height: float | None = None,
+        *,
+        order: OrderMode | None = None,
+    ) -> Iterator[Position]:
+        """Iterate over all grid positions, given a field of view size."""
+        _fov_width = fov_width or self.fov_width or 1.0
+        _fov_height = fov_height or self.fov_height or 1.0
+        order = self.mode if order is None else OrderMode(order)
+
+        dx, dy = self._step_size(_fov_width, _fov_height)
+        rows = self._nrows(dy)
+        cols = self._ncolumns(dx)
+        x0 = self._offset_x(dx)
+        y0 = self._offset_y(dy)
+
+        for idx, (r, c) in enumerate(order.generate_indices(rows, cols)):
+            yield self._build_position(
+                x=x0 + c * dx,
+                y=y0 - r * dy,
+                row=r,
+                col=c,
+                name=f"{str(idx).zfill(4)}",
+            )
 
     @deprecated(
         "num_positions() is deprecated, use len(grid_plan) instead.",
@@ -90,10 +156,6 @@ class _GridPlan(_GridMixin, MultiPositionPlan):
         rows = self._nrows(dy)
         cols = self._ncolumns(dx)
         return rows * cols
-
-    def _build_position(self, **kwargs: Any) -> Position:
-        """Build a position object for this grid plan."""
-        return Position(**kwargs, is_relative=self.is_relative)
 
 
 class GridFromEdges(_GridPlan):

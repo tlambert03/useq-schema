@@ -22,13 +22,13 @@ from pydantic import (
 )
 from pydantic_core import core_schema
 
-from useq._actions import AcquireImage, AnyAction
-from useq._base_model import MutableUseqModel, UseqModel
+from useq._common._actions import AcquireImage, AnyAction
+from useq._common._base_model import MutableUseqModel, UseqModel
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from useq._mda_sequence import MDASequence
+    from useq.v1._mda_sequence import MDASequence
     from useq.v2 import MultiAxisSequence
 
     ReprArgs = Sequence[tuple[Optional[str], Any]]

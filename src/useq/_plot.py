@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
 
-    from useq._plate import WellPlatePlan
-    from useq._position import PositionBase
+    from useq._common._plate import WellPlatePlan
+    from useq.v1._position import PositionBase
 
 
 def plot_points(

@@ -2,9 +2,9 @@ from typing import Any, Optional
 
 from pydantic import PrivateAttr
 
-from useq._actions import HardwareAutofocus
-from useq._base_model import FrozenModel
-from useq._mda_event import MDAEvent
+from useq._common._actions import HardwareAutofocus
+from useq._common._base_model import FrozenModel
+from useq._common._mda_event import MDAEvent
 
 
 class AutoFocusPlan(FrozenModel):

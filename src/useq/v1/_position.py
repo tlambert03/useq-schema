@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Generic, Optional, SupportsIndex, TypeVar
 import numpy as np
 from pydantic import Field, model_validator
 
-from useq._base_model import FrozenModel, MutableModel
+from useq._common._base_model import FrozenModel, MutableModel
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

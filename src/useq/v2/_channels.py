@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import Field, model_validator
 
 from useq import Axis, Channel
-from useq._base_model import FrozenModel
+from useq._common._base_model import FrozenModel
 from useq.v2._axes_iterator import SimpleValueAxis
 
 if TYPE_CHECKING:
-    from useq._mda_event import MDAEvent
+    from useq._common._mda_event import MDAEvent
 
 
 class ChannelsPlan(SimpleValueAxis[Channel], FrozenModel):

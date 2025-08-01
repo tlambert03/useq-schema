@@ -9,7 +9,7 @@ from tests.fixtures.cases import CASES, MDATestCase, assert_test_case_passes
 from useq import v2
 
 if TYPE_CHECKING:
-    from useq._mda_event import MDAEvent
+    from useq._common._mda_event import MDAEvent
 
 
 @pytest.mark.filterwarnings("ignore:Conflicting absolute pos")
