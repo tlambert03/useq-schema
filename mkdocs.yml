@@ -15,6 +15,7 @@ nav:
   - pymmcore-plus: /pymmcore-plus/
   - useq-schema:
       - index.md
+      - usage.md
       - Schema:
         - schema/sequence.md
         - schema/event.md
