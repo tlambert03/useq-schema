@@ -1,0 +1,109 @@
+# Shared config is managed by pymmcore-docs-theme — see ecosystem.toml.
+
+[project]
+site_name = "useq-schema"
+site_url = "https://pymmcore-plus.github.io/useq-schema/"
+site_description = "Implementation agnostic schema for microscopy experiments"
+repo_url = "https://github.com/pymmcore-plus/useq-schema"
+repo_name = "pymmcore-plus/useq-schema"
+edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
+
+nav = [
+  { "Home" = "https://pymmcore-plus.github.io/pymmcore-docs/" },
+  { "pymmcore-plus" = "https://pymmcore-plus.github.io/pymmcore-plus/" },
+  { "useq-schema" = [
+    { "Overview" = "index.md" },
+    { "Schema" = [
+      "schema/sequence.md",
+      "schema/event.md",
+      "schema/axes.md",
+      "schema/hardware_autofocus.md",
+    ] },
+    "api.md",
+    "v2-migration.md",
+  ] },
+  { "pymmcore-widgets" = "https://pymmcore-plus.github.io/pymmcore-widgets/" },
+  { "ome-writers" = "https://pymmcore-plus.github.io/ome-writers/" },
+  { "pymmcore-gui" = "https://pymmcore-plus.github.io/pymmcore-gui/" },
+]
+
+[project.theme]
+icon.logo = "lucide/microscope"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.code.select",
+  "content.tabs.link",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.tabs",
+  "toc.follow",
+  "search.highlight",
+]
+font.text = "Inter"
+font.code = "Fira Code"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "teal"
+accent = "cyan"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "teal"
+accent = "cyan"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions.toc]
+permalink = "#"
+
+[project.markdown_extensions.tables]
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.highlight]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.snippets]
+
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
+
+[project.plugins.mkdocstrings.handlers.python]
+inventories = [
+  "https://docs.python.org/3/objects.inv",
+]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
+docstring_section_style = "table"
+heading_level = 3
+show_source = false
+show_bases = false
+show_root_heading = true
+show_root_full_path = false
+show_root_toc_entry = false
+show_symbol_type_toc = true
+show_symbol_type_heading = true
+merge_init_into_class = true
+modernize_annotations = true
+separate_signature = true
+show_signature_annotations = true
+show_signature = false
+line_length = 60
