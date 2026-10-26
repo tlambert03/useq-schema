@@ -74,11 +74,6 @@ dev = [
     "pyright>=1.1.401",
     "pytest-xdist>=3.8.0",
 ]
-docs = [
-    "mkdocs >=1.4",
-    "mkdocs-material>=9.6.13",
-    "mkdocstrings-python>=1.16.10",
-]
 
 [tool.uv.sources]
 useq-schema = { workspace = true }

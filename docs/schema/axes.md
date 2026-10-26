@@ -26,9 +26,6 @@ Ways to describe a temporal acquisition sequence.
 ::: useq.TDurationLoops
     options:
         members: []
-::: useq.TIntervalDuration
-    options:
-        members: []
 ::: useq.MultiPhaseTimePlan
     options:
         members: []
@@ -69,6 +66,26 @@ Ways to describe a grid acquisition sequence.
 ::: useq.RandomPoints
     options:
         members: []
-::: useq._grid.RelativeTo
-::: useq._grid.OrderMode
-::: useq._grid.Shape
+::: useq.GridFromPolygon
+    options:
+        members: []
+
+### Grid options
+
+::: useq.OrderMode
+::: useq.Shape
+::: useq.TraversalOrder
+
+## Well plates
+
+::: useq.WellPlatePlan
+    options:
+        members: []
+
+::: useq.WellPlate
+    options:
+        members: []
+
+::: useq.register_well_plates
+
+::: useq.registered_well_plate_keys

@@ -93,11 +93,9 @@ class AutoFocusTransform(EventTransform[MDAEvent]):
 
     Parameters
     ----------
-    plan_getter :
-        Function that returns the *active* autofocus plan for the
-        current event.  By default we use ``event.sequence.autofocus_plan``,
-        but you can plug in something smarter if you support
-        per-position overrides.
+    af_plan : AxesBasedAF
+        The autofocus plan.  An autofocus event is inserted whenever one of
+        ``af_plan.axes`` changes between consecutive events.
     """
 
     priority = -1

@@ -4,7 +4,7 @@
     options:
         members: []
 
-::: useq._mda_event.Channel
+::: useq.EventChannel
     options:
         members: []
 

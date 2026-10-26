@@ -1,0 +1,7 @@
+# Navigation for useq-schema's reference section in the unified docs.
+# The schema pages (schema/) and the v2 migration guide are placed into the
+# site-wide User Guide by the hub: pymmcore-plus/pymmcore-plus.github.io
+title: useq-schema
+nav:
+  - Overview: index.md
+  - api/useq

@@ -1,0 +1,21 @@
+# useq-schema docs are published as part of the unified pymmcore-plus site,
+# composed by https://github.com/pymmcore-plus/pymmcore-plus.github.io.
+# Theme and global settings live there; this file holds what useq-schema owns.
+[project]
+site_name = "useq-schema"
+site_url = "https://pymmcore-plus.github.io/useq-schema/"
+repo_url = "https://github.com/pymmcore-plus/useq-schema"
+edit_uri = "edit/main/docs/"
+
+[project.plugins.awesome-nav]
+
+[project.plugins.api-autonav]
+modules = ["src/useq"]
+api_root_uri = "api"
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
+extensions = [{ griffe_fieldz = { include_inherited = true, strip_annotated = true } }]
