@@ -13,6 +13,11 @@ edit_uri = "edit/main/docs/"
 modules = ["src/useq"]
 api_root_uri = "api"
 
+# useq.v2 reuses many names from useq (e.g. its own MDASequence): spell out
+# `useq.v2.` in its headings, so search results and pages say which is which
+[project.plugins.api-autonav.module_options.'useq\.v2']
+show_object_full_path = true
+
 [project.plugins.mkdocstrings.handlers.python]
 paths = ["src"]
 
