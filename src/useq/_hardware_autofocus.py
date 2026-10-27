@@ -36,7 +36,7 @@ class AutoFocusPlan(FrozenModel):
         """Return an autofocus [`useq.MDAEvent`][] if autofocus should be performed.
 
         The z position of the new [`useq.MDAEvent`][] is also updated if a relative
-        zplan is provided since autofocus shuld be performed on the home z stack
+        zplan is provided since autofocus should be performed on the home z stack
         position.
         """
         if not self.should_autofocus(event):
@@ -66,9 +66,9 @@ class AxesBasedAF(AutoFocusPlan):
     ----------
     axes : Tuple[str, ...]
         Tuple of axis label to use for hardware autofocus.  At every event in which
-        *any* axis in this tuple is change, autofocus will be performed.  For example,
+        *any* axis in this tuple changes, autofocus will be performed.  For example,
         if `axes` is `('p',)` then autofocus will be performed every time the `p` axis
-        is change, (in other words: every time the position is changed.).
+        changes (in other words: every time the position is changed).
     """
 
     axes: tuple[str, ...]

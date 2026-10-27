@@ -1,6 +1,9 @@
 # Hardware Autofocus Plan
 
-Ways to describe a hardware-based autofocus plan.
+Ways to describe a hardware-based autofocus plan.  An `autofocus_plan` on an
+[`MDASequence`](sequence.md) inserts events with a
+[`HardwareAutofocus`][useq.HardwareAutofocus] action into the sequence (for
+example, every time the stage position changes).
 
 ::: useq.AutoFocusPlan
     options:

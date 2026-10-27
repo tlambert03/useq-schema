@@ -1,551 +1,200 @@
-# v2 Migration Guide
+# useq-schema v2 (Preview)
 
-## Overview
+!!! warning "This is a preview"
 
-The v2 version of `useq-schema` represents a fundamental architectural redesign
-that generalizes the multi-dimensional axis iteration pattern to support
-arbitrary dimensions while preserving the complex event building, nesting, and
-skipping capabilities of the original implementation. This document explains the
-new features, how to use and extend them, and the breaking changes from v1.
+    `useq.v2` is a preview of the next version of the useq-schema API, and it may
+    still change.  `useq.MDASequence`, as described in the rest of these docs, is
+    unchanged, and *nothing needs to migrate yet*.
 
-## Key Architectural Changes
+    pymmcore-plus can already run a `useq.v2.MDASequence`, but (for now) it treats
+    it like any other iterable of events.  The engine doesn't see the sequence
+    itself, and [saved data](../pymmcore-plus/guides/saving_data.md#lists-and-generators-are-saved-as-a-flat-stack)
+    is written as one flat stack of frames.
 
-### From Fixed Axes to Extensible Axis System
+In `useq.MDASequence`, the axes are fixed: time, positions, grid, channels and z
+(`"tpgcz"`), and the logic for combining them lives inside useq.  In `useq.v2`, a
+sequence is a tuple of *axes*, and any object that follows the
+`v2.AxisIterable` interface can be one (it has an `axis_key`, yields values, and
+says what each value contributes to an event).  The familiar plans (time plans, z
+plans, grids, channels, stage positions) are all v2 axes, so the same experiments
+can still be described, but you can also add your own axes, decide per axis which
+combinations to skip, give a single position its own plans, and post-process the
+stream of events with *transforms*.
 
-**v1 Approach**: Hard-coded support for specific axes (`time`, `position`,
-`grid`, `channel`, `z`) with bespoke iteration logic in `_iter_sequence.py`.
+The examples below all run against the current preview.
 
-**v2 Approach**: Generic, protocol-based system where any object implementing
-`AxisIterable` can participate in multi-dimensional iteration.
+## The old arguments still work
 
-### Core Concepts
-
-#### 1. `AxisIterable[V]` Protocol
-
-The foundation of v2 is the `AxisIterable` protocol, which defines how any axis
-should behave.  In short, an `AxisIterable` is an object that yields values (of
-any type), has an associated `axis_key`, and can contribute to event building
-and skipping logic.
-
-```python
-from pydantic import BaseModel, Field
-from typing import Generic, Iterator, Mapping, TypeVar
-from abc import abstractmethod
-
-V = TypeVar("V")
-
-
-class AxisIterable(BaseModel, Generic[V]):
-    axis_key: str  # Unique identifier for this axis
-
-    @abstractmethod
-    def __iter__(self) -> Iterator[V]:
-        """Iterate over axis values"""
-
-    def should_skip(self, prefix: AxesIndex) -> bool:
-        """Return True to skip this combination"""
-        return False
-
-    def contribute_to_mda_event(
-        self, value: V, index: Mapping[str, int]
-    ) -> MDAEvent.Kwargs:
-        """Contribute data to the event being built"""
-        return {}
-```
-
-#### 2. `SimpleValueAxis[V]` - Basic Implementation
-
-For simple cases where you just want to iterate over a list of values:
-
-```python
-class SimpleValueAxis(AxisIterable[V]):
-    values: list[V] = Field(default_factory=list)
-
-    def __iter__(self) -> Iterator[V | MultiAxisSequence]:
-        yield from self.values
-```
-
-```python
-axis = SimpleValueAxis(axis_key="z", values=[0, 1, 2, 3, 4])
-for z in axis:
-    print(z)  # Outputs 0, 1, 2, 3, 4
-```
-
-#### 3. `MultiAxisSequence[EventT]` - The New Sequence Container
-
-Replaces the old `MDASequence` as the core container, but with generic event
-support.  A `MultiAxisSequence` holds any number of `AxisIterable` objects,
-defines their order, and manages how the values from each axis get merged into
-an event.
-
-```python
-EventT = TypeVar("EventT")
-
-
-class MultiAxisSequence(BaseModel, Generic[EventT]):
-    axes: tuple[AxisIterable, ...] = ()
-    axis_order: Optional[tuple[str, ...]] = None
-
-    value: Any = None  # Used when this sequence is nested
-    event_builder: Optional[EventBuilder[EventT]] = None
-    transforms: tuple[EventTransform, ...] = ()
-```
-
-#### 4. `MDASequence`
-
-There *is* still an `MDASequence` class in v2, which is a subclass of
-`MultiAxisSequence` specialized for building `MDAEvent` objects.
-
-```python
-from useq.v2 import MDAEvent
-
-
-class MDASequence(MultiAxisSequence[MDAEvent]): ...
-```
-
-In other words, `MultiAxisSequence` is a generic iterator over multiple
-axes that can build *any* type of event, while `MDASequence` is a specific
-implementation that builds `MDAEvent` objects (just like v1).
-
-## New Features
-
-### 1. **Arbitrary Custom Axes**
-
-You can now define completely custom axes for any dimension:
+`v2.MDASequence` accepts the same keyword arguments as `useq.MDASequence`, and
+converts them into `axes`:
 
 ```python
 from useq import v2
 
-
-# Custom axis for laser power
-class LaserPowerAxis(v2.SimpleValueAxis[float]):
-    axis_key: str = "laser_power"
-
-    def contribute_to_mda_event(
-        self, value: float, index: Mapping[str, int]
-    ) -> v2.MDAEvent.Kwargs:
-        return {"metadata": {"laser_power": value}}
-
-
-# Custom axis for temperature
-class TemperatureAxis(v2.AxisIterable[float]):
-    axis_key: str = "temperature"
-    min_temp: float
-    max_temp: float
-    step: float
-
-    def __iter__(self) -> Iterator[float]:
-        temp = self.min_temp
-        while temp <= self.max_temp:
-            yield temp
-            temp += self.step
-
-    def contribute_to_mda_event(
-        self, value: float, index: Mapping[str, int]
-    ) -> v2.MDAEvent.Kwargs:
-        return {"metadata": {"temperature": value}}
-```
-
-### 2. **Conditional Skipping with `should_skip`**
-
-`should_skip` method on any axis allows context-aware skipping of specific
-combinations.  It receives an `AxesIndex`, which contains information on
-the exact value and index being yielded by each axis in this iteration step.
-
-```python
-class FilteredChannelAxis(v2.SimpleValueAxis[v2.Channel]):
-    def should_skip(self, prefix: v2.AxesIndex) -> bool:
-        # Skip FITC channel for even numbered Z positions
-        z_idx = prefix.get("z", (None, None, None))[0]
-        current_channel = prefix.get("c", (None, None, None))[1]
-        
-        if z_idx is not None and z_idx % 2 == 0:
-            return current_channel.config == "FITC"
-        return False
-```
-
-### 3. **Hierarchical Nested Sequences**
-
-The new system supports arbitrarily nested sequences that can override or extend
-parent axes.  A `MultiAxisSequence` *itself* can have a `value`, allowing it to
-be used as a yielded value from a parent axis.
-
-In the following example, we define a sub-sequence for a specific position that
-adds a temperature axis and overrides the Z plan defined in the parent sequence:
-
-```python
-from useq import v2
-
-# Position with custom sub-sequence (uses MDASequence, which StagePositions accepts)
-sub_sequence = v2.MDASequence(
-    value=v2.Position(x=10, y=20),  # The value represents this position
-    axes=(
-        # Add temperature dimension
-        v2.SimpleValueAxis(axis_key="temperature", values=[20, 25, 30]),
-        # Override parent Z plan
-        v2.ZRangeAround(range=2, step=0.5),
-    ),
-    axis_order=("temperature", "z"),
-)
-
-main_sequence = v2.MDASequence(
-    axes=(
-        v2.TIntervalLoops(interval=1.0, loops=5),
-        v2.StagePositions(values=[sub_sequence, v2.Position(x=0, y=0)]),
-        # This gets overridden for the first position
-        v2.ZRangeAround(range=4, step=1.0),
-    )
-)
-```
-
-### 4. **Event Transform Pipeline**
-
-Transforms allow you to modify events after they are built but before they are
-yielded. This replaces the old hardcoded event modification logic with a
-flexible, composable pipeline:
-
-```python
-from useq.v2 import KeepShutterOpenTransform, EventTransform
-
-
-class CustomTransform(EventTransform[MDAEvent]):
-    def __call__(
-        self,
-        event: MDAEvent,
-        *,
-        prev_event: MDAEvent | None,
-        make_next_event: Callable[[], MDAEvent | None],
-    ) -> Iterable[MDAEvent]:
-        # Modify event
-        if event.index.get("c") == 0:  # First channel
-            event = event.model_copy(update={"exposure": 100})
-
-        # Can return multiple events, no events, or modify the event
-        return [event]
-
-
 seq = v2.MDASequence(
-    channels=["DAPI", "FITC"],  # Using legacy API for brevity
-    transforms=(CustomTransform(), KeepShutterOpenTransform(("z",))),
-)
-```
-
-#### 4.1 **Built-in Transforms**
-
-v2 provides several built-in transforms that replicate v1 behavior.
-Note: transforms are currently available from `useq.v2._transformers`:
-
-```python
-from useq.v2 import (
-    AutoFocusTransform,
-    KeepShutterOpenTransform,
-    ResetEventTimerTransform,
-)
-
-# Shutter management - keeps shutter open across specified axes
-KeepShutterOpenTransform(("z", "c"))
-
-# Event timing - marks first frame of each timepoint for timer reset
-ResetEventTimerTransform()
-```
-
-#### 4.2 **Non-Imaging Events with Transforms**
-
-A key innovation in v2 is the ability to use transforms to insert **non-imaging
-events** that don't contribute to the sequence shape. This addresses GitHub
-issue [#41](https://github.com/pymmcore-plus/useq-schema/issues/41) for use
-cases like laser measurements and Raman spectroscopy:
-
-```python
-class LaserMeasurementTransform(EventTransform[MDAEvent]):
-    """Insert laser measurement events after BF z-stacks."""
-
-    def __call__(
-        self,
-        event: MDAEvent,
-        *,
-        prev_event: MDAEvent | None,
-        make_next_event: Callable[[], MDAEvent | None],
-    ) -> Iterable[MDAEvent]:
-        # Yield the original imaging event
-        yield event
-
-        # If this is the last event in a BF z-stack, add laser measurements
-        if (
-            event.channel
-            and event.channel.config == "BF"
-            and self._is_last_z_event(event, make_next_event)
-        ):
-            # Insert 5 laser measurement events at different points
-            for i, (x_offset, y_offset) in enumerate(
-                [(0, 0), (10, 0), (0, 10), (-10, 0), (0, -10)]
-            ):
-                laser_event = MDAEvent(
-                    index={"t": event.index.get("t", 0), "laser": i},
-                    x_pos=(event.x_pos or 0) + x_offset,
-                    y_pos=(event.y_pos or 0) + y_offset,
-                    action=CustomAction(
-                        type="laser_measurement", data={"laser_power": 75}
-                    ),
-                )
-                yield laser_event
-
-    def _is_last_z_event(self, event: MDAEvent, make_next_event: Callable) -> bool:
-        next_event = make_next_event()
-        return (
-            next_event is None
-            or next_event.channel is None
-            or next_event.channel.config != "BF"
-        )
-
-
-# Usage for the GitHub issue #41 use case:
-# 1. Collect BF z-stack → 2. Laser measurements → 3. GFP z-stack
-seq = v2.MDASequence(
-    channels=["BF", "GFP"],
-    z_plan=v2.ZRangeAround(range=2, step=0.5),
-    transforms=(LaserMeasurementTransform(),),
-)
-
-# This generates:
-# - BF z-stack events (contribute to shape)
-# - 5 laser measurement events (inserted by transform, don't affect shape)
-# - GFP z-stack events (contribute to shape)
-```
-
-### 5. **Pluggable Event Builders**
-
-Customize how raw axis data gets converted into events:
-
-```python
-class MyCustomEvent: ...
-
-
-class CustomEventBuilder(v2.EventBuilder[MyCustomEvent]):
-    def __call__(
-        self, axes_index: v2.AxesIndex, context: tuple[v2.MultiAxisSequence, ...]
-    ) -> MyCustomEvent:
-        # Build your custom event type
-        return MyCustomEvent(...)
-
-
-seq = v2.MultiAxisSequence(axes=(), event_builder=CustomEventBuilder())
-```
-
-### 6. **Infinite Axes Support**
-
-Unlike v1, v2 supports infinite sequences:
-
-```python
-class InfiniteTimeAxis(v2.AxisIterable[float]):
-    axis_key: str = "t"
-    interval: float = 1.0
-    
-    def __iter__(self) -> Iterator[float]:
-        time = 0.0
-        while True:
-            yield time
-            time += self.interval
-```
-
-## Migration from v1 to v2
-
-### Backward Compatibility
-
-v2 `MDASequence` accepts the same constructor parameters as v1 through automatic
-conversion:
-
-```python
-# This v1 style still works
-seq = v2.MDASequence(
-    time_plan={"interval": 1.0, "loops": 5},
-    z_plan={"range": 4, "step": 1},
-    channels=["DAPI", "FITC"],
+    time_plan={"interval": 1.0, "loops": 2},
     stage_positions=[(10, 20, 5)],
+    channels=["DAPI", "FITC"],
+    z_plan={"range": 2, "step": 1},
 )
+print([str(axis.axis_key) for axis in seq.axes])
+# ['t', 'p', 'c', 'z']
 
-# Internally converted to:
+# ... which is the same as:
 seq2 = v2.MDASequence(
     axes=(
-        v2.TIntervalLoops(interval=1.0, loops=5),
+        v2.TIntervalLoops(interval=1.0, loops=2),
         v2.StagePositions(values=[v2.Position(x=10, y=20, z=5)]),
         v2.ChannelsPlan(values=[v2.Channel(config="DAPI"), v2.Channel(config="FITC")]),
-        v2.ZRangeAround(range=4, step=1),
+        v2.ZRangeAround(range=2, step=1),
     ),
 )
-
 assert list(seq) == list(seq2)
 ```
 
-### Breaking Changes
+An existing `useq.MDASequence` can be converted with
+`v2.MDASequence.model_validate(old_sequence)`.  The events are the same as the
+ones `useq.MDASequence` yields (except that v2 events don't carry a reference to
+their `sequence`), with these exceptions in the current preview:
 
-#### 1. **Event Building Architecture**
+- The `Channel` options `acquire_every`, `do_stack` and `z_offset` are *not*
+  applied yet, so every channel is acquired at every time point and z position.
+- Giving a position its own sub-sequence with `Position(sequence=...)` emits a
+  `DeprecationWarning`; see [below](#different-plans-for-one-position) for the v2
+  way.
 
-**v1**: Monolithic `_iter_sequence` function with hardcoded event building
-logic.
+## Custom axes
 
-**v2**: Separation of concerns:
-
-- Axis iteration handled by `iterate_multi_dim_sequence`
-- Event building handled by `EventBuilder`
-- Event modification handled by `EventTransform` pipeline
-
-#### 2. **Shape and Sizes Properties**
+An axis yields values, and its `contribute_to_mda_event` method says what each
+value adds to the event.  For example, here's an axis that steps a laser power
+(as a device property):
 
 ```python
-from useq import MDASequence
+from collections.abc import Mapping
+
 from useq import v2
 
-# v1
-seq = MDASequence()
-seq.shape  # Returns tuple of sizes
-seq.sizes  # Returns mapping of axis -> size
 
-# v2 - DEPRECATED
-seq2 = v2.MDASequence()
-seq2.shape  # Deprecated - raises FutureWarning
-seq2.sizes  # Deprecated - raises FutureWarning
+class LaserPowerAxis(v2.SimpleValueAxis[float]):
+    axis_key: str = "laser"
 
-# v2 - New approach
-[len(axis) for axis in seq2.axes]  # Get size per axis
-seq2.is_finite()  # Check if sequence is finite
+    def contribute_to_mda_event(self, value: float, index: Mapping[str, int]) -> dict:
+        return {"properties": [("Laser", "Power", value)]}  # (1)!
+
+
+seq = v2.MDASequence(
+    axes=(
+        v2.ChannelsPlan(values=["DAPI", "FITC"]),
+        LaserPowerAxis(values=[10, 50]),
+    ),
+)
+for event in seq:
+    print(event)
 ```
 
-#### 3. **Axis Access**
+1. Whatever this returns is passed to `MDAEvent(...)`.  (For type checkers, the
+   return type is `MDAEvent.Kwargs`, a `TypedDict` that only exists when type
+   checking.)
 
-```python
-# v1
-seq.time_plan
-seq.z_plan
-seq.channels
-seq.stage_positions
-seq.grid_plan
-
-# v2 - Legacy properties still work but deprecated
-seq2.time_plan  # Returns the time axis or None
-seq2.z_plan  # Returns the z axis or None
-
-# v2 - New approach
-time_axis = next((ax for ax in seq2.axes if ax.axis_key == "t"), None)
-z_axis = next((ax for ax in seq2.axes if ax.axis_key == "z"), None)
-
-# each of which have convenience methods:
-time_axis = seq2.time_plan
-z_axis = seq2.z_plan
+```
+index={'c': 0, 'laser': 0} channel=Channel(config='DAPI') properties=[PropertyTuple(device_name='Laser', property_name='Power', property_value=10.0)]
+index={'c': 0, 'laser': 1} channel=Channel(config='DAPI') properties=[PropertyTuple(device_name='Laser', property_name='Power', property_value=50.0)]
+index={'c': 1, 'laser': 0} channel=Channel(config='FITC') properties=[PropertyTuple(device_name='Laser', property_name='Power', property_value=10.0)]
+index={'c': 1, 'laser': 1} channel=Channel(config='FITC') properties=[PropertyTuple(device_name='Laser', property_name='Power', property_value=50.0)]
 ```
 
-#### 4. **Custom Skip Logic**
+`v2.SimpleValueAxis` iterates over a list of `values`.  For anything else,
+subclass `v2.AxisIterable` and implement `__iter__` (see [Sequences that never
+end](#sequences-that-never-end)).
 
-**v1**: Hardcoded in `_should_skip` function within `_iter_sequence.py`
+## Skipping combinations
 
-**v2**: Implemented per-axis via `should_skip` method:
-
-```python
-class CustomZAxis(v2.ZRangeAround):
-    def should_skip(self, prefix: AxesIndex) -> bool:
-        # Custom logic here
-        return super().should_skip(prefix)
-```
-
-#### Z. **Z-Plans yield Positions, not floats**
-
-**v1**: Z plans yielded floats representing Z positions.
-
-**v2**: Z plans yield `Position` objects that (usually) include only z
-coordinates:
-
-## Built-in Axes in v2
-
-All the original v1 plans are now `AxisIterable` implementations:
-
-### Time Axes
-
-- `TIntervalLoops`
-- `TIntervalDuration`
-- `TDurationLoops`
-- `MultiPhaseTimePlan`
-
-### Z Axes  
-
-- `ZRangeAround`
-- `ZTopBottom`
-- `ZAboveBelow`
-- `ZAbsolutePositions`
-- `ZRelativePositions`
-
-### Channel Axes
-
-- `ChannelsPlan` (wraps list of `Channel` objects)
-
-### Position Axes
-
-- `StagePositions` (wraps list of `Position` objects)
-
-### Grid Axes
-
-- `GridRowsColumns`
-- `GridFromEdges`
-- `GridWidthHeight`
-- `RandomPoints`
-
-## Extension Examples
-
-### Creating a Custom Scientific Axis
-
-```python
-class PHAxis(v2.AxisIterable[float]):
-    """Axis for pH titration experiments."""
-
-    axis_key: str = "ph"
-    start_ph: float = 6.0
-    end_ph: float = 8.0
-    steps: int = 10
-
-    def __iter__(self) -> Iterator[float]:
-        step_size = (self.end_ph - self.start_ph) / (self.steps - 1)
-        for i in range(self.steps):
-            yield self.start_ph + i * step_size
-
-    def contribute_to_mda_event(
-        self, value: float, index: Mapping[str, int]
-    ) -> MDAEvent.Kwargs:
-        return {
-            "metadata": {"ph": value},
-            "properties": [("pH_Controller", "target_ph", value)],
-        }
-
-    def should_skip(self, prefix: AxesIndex) -> bool:
-        # Skip pH 7.5+ for channel index > 2
-        channel_idx = prefix.get("c", (None, None, None))[0]
-        ph_value = prefix.get("ph", (None, None, None))[1]
-        return channel_idx is not None and channel_idx > 2 and ph_value >= 7.5
-```
-
-### Complex Nested Workflow
+Any axis can veto a combination of values by overriding `should_skip`.  It
+receives a dict that maps each axis key to an `(index, value, axis)` tuple.  Here
+the second channel gets a single plane rather than a z-stack:
 
 ```python
 from useq import v2
 
-# Different regions with different imaging parameters
-region1 = v2.MDASequence(
-    value=v2.Position(x=0, y=0, name="Region1"),
+
+class SparseZ(v2.ZRangeAround):
+    """Only take the full z-stack in the first channel."""
+
+    def should_skip(self, prefix: dict) -> bool:
+        c_index = prefix["c"][0]
+        z_index = prefix["z"][0]
+        return c_index > 0 and z_index != 1
+
+
+seq = v2.MDASequence(
     axes=(
-        v2.ZRangeAround(range=10, step=0.2),  # High-res Z
-        v2.ChannelsPlan(values=["DAPI", "FITC", "Cy3"]),  # 3 channels
+        v2.ChannelsPlan(values=["DAPI", "FITC"]),
+        SparseZ(range=2, step=1),  # (1)!
     ),
 )
+for event in seq:
+    print(event.index, event.channel.config, event.z_pos)
+```
 
-region2 = v2.MDASequence(
-    value=v2.Position(x=100, y=100, name="Region2"),
-    axes=(
-        v2.ZRangeAround(range=20, step=0.5),  # Lower-res Z
-        v2.ChannelsPlan(values=["DAPI", "Cy5"]),  # Only 2 channels
-        PHAxis(start_ph=6.5, end_ph=7.5, steps=5),  # pH titration
-    ),
+1. There's no stage position here, so (just as in v1) this relative z plan is
+   centered on z = 0, not on the current focus.
+
+```
+{'c': 0, 'z': 0} DAPI -1.0
+{'c': 0, 'z': 1} DAPI 0.0
+{'c': 0, 'z': 2} DAPI 1.0
+{'c': 1, 'z': 1} FITC 0.0
+```
+
+## Different plans for one position
+
+A value yielded by an axis may itself be a sequence, whose `value` stands in for
+the plain value, and whose axes replace (or add to) the parent's axes for that
+branch.  Here, the second position gets a bigger z-stack:
+
+```python
+from useq import v2
+
+cell_1 = v2.MDASequence(
+    value=v2.Position(x=100, y=100, z=10),
+    axes=(v2.ZRangeAround(range=4, step=2),),
 )
 
+seq = v2.MDASequence(
+    axes=(
+        v2.StagePositions(values=[v2.Position(x=0, y=0, z=10), cell_1]),
+        v2.ChannelsPlan(values=["DAPI"]),
+        v2.ZRangeAround(range=1, step=1),
+    ),
+)
+for event in seq:
+    print(event.index, event.x_pos, event.z_pos)
+```
 
-class CustomTransform:
+```
+{'p': 0, 'c': 0, 'z': 0} 0.0 9.5
+{'p': 0, 'c': 0, 'z': 1} 0.0 10.5
+{'p': 1, 'c': 0, 'z': 0} 100.0 8.0
+{'p': 1, 'c': 0, 'z': 1} 100.0 10.0
+{'p': 1, 'c': 0, 'z': 2} 100.0 12.0
+```
+
+## Transforms
+
+Transforms see each event after it has been built, and may change it, drop it, or
+add more events, which makes it possible to insert events that don't belong to
+any axis.  A transform is a callable that returns (or yields) events.  It also
+gets the previous event, and a function that builds the next one, for look-ahead:
+
+```python
+from collections.abc import Callable, Iterable
+
+from useq import v2
+
+
+class SnapBrightfieldAfterStack:
+    """After each z-stack, add a single brightfield image."""
+
     def __call__(
         self,
         event: v2.MDAEvent,
@@ -553,61 +202,121 @@ class CustomTransform:
         prev_event: v2.MDAEvent | None,
         make_next_event: Callable[[], v2.MDAEvent | None],
     ) -> Iterable[v2.MDAEvent]:
-        # possibly modify event... based on conditions
         yield event
+        next_event = make_next_event()
+        if next_event is None or next_event.index.get("z", 0) == 0:
+            yield event.model_copy(
+                update={"channel": v2.EventChannel(config="BF"), "z_pos": None}
+            )
 
 
-main_seq = v2.MDASequence(
-    axes=(
-        v2.TIntervalLoops(interval=60, loops=10),  # Every minute for 10 minutes
-        v2.StagePositions(values=[region1, region2]),
-    ),
-    transforms=(
-        CustomTransform(),
-        v2.KeepShutterOpenTransform(("z", "c")),  # Keep shutter open for Z and C
-    ),
+seq = v2.MDASequence(
+    channels=["DAPI"],
+    stage_positions=[(0, 0, 10), (100, 100, 10)],
+    z_plan={"range": 2, "step": 1},
+    transforms=(SnapBrightfieldAfterStack(),),
 )
+for event in seq:
+    print(event.index, event.channel.config, event.z_pos)
 ```
 
-## Performance and Design Benefits
+```
+{'p': 0, 'c': 0, 'z': 0} DAPI 9.0
+{'p': 0, 'c': 0, 'z': 1} DAPI 10.0
+{'p': 0, 'c': 0, 'z': 2} DAPI 11.0
+{'p': 0, 'c': 0, 'z': 2} BF None
+{'p': 1, 'c': 0, 'z': 0} DAPI 9.0
+{'p': 1, 'c': 0, 'z': 1} DAPI 10.0
+{'p': 1, 'c': 0, 'z': 2} DAPI 11.0
+{'p': 1, 'c': 0, 'z': 2} BF None
+```
 
-### Separation of Concerns
+Some of v1's built-in behavior is implemented as transforms, which v2 adds for
+you: `ResetEventTimerTransform` (when there is a time plan), and
+`KeepShutterOpenTransform` and `AutoFocusTransform` (when you set
+`keep_shutter_open_across` or `autofocus_plan`).
 
-- **Axis logic**: Isolated in individual `AxisIterable` implementations
-- **Event building**: Centralized in `EventBuilder`
-- **Event modification**: Composable `EventTransform` pipeline
+!!! warning
 
-### Extensibility
+    Passing `transforms=` *replaces* the default transforms.  If your sequence has
+    a time plan, add `v2.ResetEventTimerTransform()` to your own tuple, or the
+    first event will no longer reset the event timer.
 
-- Add new dimensions without modifying core code
-- Custom skip logic per axis
-- Pluggable event builders for different event types
-- Composable transform pipeline
+## Sequences that never end
 
-### Type Safety
+v2 axes don't need a length, so a sequence can go on forever (or until the
+acquisition is cancelled):
 
-- Generic types ensure type safety across the pipeline
-- Protocol-based design enables duck typing
-- Clear interfaces for each component
+```python
+import itertools
+from collections.abc import Iterator, Mapping
 
-### Maintainability
+from useq import v2
 
-- Individual axis implementations are easier to test and debug
-- Transform pipeline is easier to reason about than monolithic logic
-- Clear separation between axis iteration and event building
 
-## Summary
+class Forever(v2.AxisIterable[int]):
+    """A time axis with no end."""
 
-useq-schema v2 transforms the library from a fixed-axis system to a fully
-extensible, protocol-based architecture that supports:
+    axis_key: str = "t"
 
-- **Arbitrary custom axes** with their own iteration and contribution logic
-- **Conditional skipping** per axis with full context awareness  
-- **Hierarchical nesting** with axis override capabilities
-- **Composable transforms** for event modification
-- **Pluggable event builders** for different event types
-- **Type-safe extensibility** through generic protocols
+    def __iter__(self) -> Iterator[int]:
+        yield from itertools.count()
 
-While maintaining full backward compatibility with v1 API patterns, v2 opens up
-useq-schema for complex, multi-dimensional experimental workflows that were
-impossible to express in the original architecture.
+    def contribute_to_mda_event(self, value: int, index: Mapping[str, int]) -> dict:
+        return {"min_start_time": value * 5.0}
+
+
+seq = v2.MDASequence(axes=(Forever(), v2.ChannelsPlan(values=["DAPI", "FITC"])))
+print(seq.is_finite())  # False
+for event in itertools.islice(seq, 5):
+    print(event.index, event.channel.config, event.min_start_time)
+```
+
+```
+{'t': 0, 'c': 0} DAPI 0.0
+{'t': 0, 'c': 1} FITC 0.0
+{'t': 1, 'c': 0} DAPI 5.0
+{'t': 1, 'c': 1} FITC 5.0
+{'t': 2, 'c': 0} DAPI 10.0
+```
+
+## Other kinds of events
+
+`v2.MDASequence` builds `MDAEvent` objects, but the class it is built on,
+`v2.MultiAxisSequence`, can build anything.  Pass it an `event_builder`, which is
+called with the axes index (and the chain of enclosing sequences) for each
+combination:
+
+```python
+from useq import v2
+
+
+class DictBuilder:
+    def __call__(self, axes_index: dict, context: tuple) -> dict:
+        return {key: value for key, (index, value, axis) in axes_index.items()}
+
+
+seq = v2.MultiAxisSequence(
+    axes=(
+        v2.SimpleValueAxis(axis_key="a", values=[1, 2]),
+        v2.SimpleValueAxis(axis_key="b", values=["x", "y"]),
+    ),
+    event_builder=DictBuilder(),
+)
+print(list(seq.iter_events()))
+# [{'a': 1, 'b': 'x'}, {'a': 1, 'b': 'y'}, {'a': 2, 'b': 'x'}, {'a': 2, 'b': 'y'}]
+```
+
+## v1 and v2 side by side
+
+| | `useq.MDASequence` | `useq.v2.MDASequence` |
+| --- | --- | --- |
+| axes | `time_plan`, `stage_positions`, `grid_plan`, `channels`, `z_plan` | `axes=(...)`, any `AxisIterable` (the v1 keywords are converted) |
+| plan for one position | `Position(sequence=MDASequence(...))` | `MDASequence(value=Position(...), axes=(...))`, as an item in `StagePositions` |
+| skipping | `Channel(acquire_every=..., do_stack=...)` | `should_skip()` on any axis (the `Channel` options aren't applied yet) |
+| sizes | `seq.sizes`, `seq.shape` | `[len(axis) for axis in seq.axes]` and `seq.is_finite()` (`sizes` and `shape` still work, with a `FutureWarning`) |
+| finding a plan | `seq.time_plan`, `seq.z_plan`, ... | the same properties, which return the axis with that key (or `None`) |
+| z plan values | `float` | `Position` (with only `z` set) |
+| extra events | build the list of events yourself | transforms |
+| length | always finite | may be infinite |
+| files | `seq.yaml()`, `MDASequence.from_file()` | no `yaml()` or `from_file()` yet |

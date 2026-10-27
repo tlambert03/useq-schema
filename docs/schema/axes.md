@@ -1,7 +1,9 @@
 # Axes
 
 The following objects may be used to describe iteration over specific
-types of dimensions.
+types of dimensions: the stage positions, channels, time plans, z plans, grids
+and well plates of an [`MDASequence`](sequence.md).  (Most of them may also be
+given as plain dicts, see [Building Sequences](../guides/sequences.md).)
 
 ::: useq.Position
     options:
@@ -13,7 +15,7 @@ types of dimensions.
         heading_level: 2
         members: []
 
-## Time Plans
+## Time plans
 
 Ways to describe a temporal acquisition sequence.
 
@@ -30,7 +32,7 @@ Ways to describe a temporal acquisition sequence.
     options:
         members: []
 
-## Z Plans
+## Z plans
 
 Ways to describe a z-stack acquisition sequence.
 
@@ -50,7 +52,7 @@ Ways to describe a z-stack acquisition sequence.
     options:
         members: []
 
-## Grid Plans
+## Grid plans
 
 Ways to describe a grid acquisition sequence.
 

@@ -1,3 +1,5 @@
+"""Convert useq objects to the event dicts used by [Pycro-Manager](https://pycro-manager.readthedocs.io)."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload

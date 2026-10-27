@@ -2,8 +2,8 @@
 
 `useq.v2` is the next version of the useq-schema API.  Several of its classes share
 names with the current ones but are different classes: for example,
-`useq.v2.MDASequence` is not [`useq.MDASequence`][].  See the
-[v2 migration guide][v2-migration-guide] for what changes.
+`useq.v2.MDASequence` is not [`useq.MDASequence`][].  See [useq-schema v2
+(preview)][useq-schema-v2-preview] for what's different.
 """
 
 from typing import Any

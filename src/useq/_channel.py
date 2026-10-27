@@ -26,7 +26,7 @@ class Channel(FrozenModel):
         Relative Z offset from current position, in microns. By default, `0`.
     acquire_every : int
         Acquire every Nth frame (if acquiring a time series). By default, `1`.
-    camera: str | None
+    camera : str | None
         Name of the camera to use for this channel. If not provided, implies use
         current camera. By default, `None`.
     """

@@ -53,7 +53,7 @@ class HardwareAutofocus(Action):
         The name of the autofocus offset motor device (if applicable).  If `None`,
         acquisition engines may attempt to set the offset however they see fit (such as
         using a current or default autofocus device.)
-    autofocus_motor_offset: float, optional
+    autofocus_motor_offset : float, optional
         Before autofocus is performed, the autofocus motor should be moved to this
         offset, if applicable. (Not all autofocus devices have an offset motor.)
         If None, the autofocus motor should not be moved.

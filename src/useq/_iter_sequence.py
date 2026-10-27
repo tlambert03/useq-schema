@@ -57,7 +57,7 @@ def _used_axes(seq: MDASequence) -> str:
 
 
 def iter_sequence(sequence: MDASequence) -> Iterator[MDAEvent]:
-    """Iterate over all events in the MDA sequence.'.
+    """Iterate over all events in the MDA sequence.
 
     !!! note
         This method will usually be used via [`useq.MDASequence.iter_events`][], or by
@@ -67,7 +67,7 @@ def iter_sequence(sequence: MDASequence) -> Iterator[MDAEvent]:
     handling the logic of merging all z plans in channels and stage positions
     defined in the plans for each axis.
 
-    The is the most "logic heavy" part of `useq-schema` (the rest of which is
+    This is the most "logic heavy" part of `useq-schema` (the rest of which is
     almost entirely declarative).  This iterator is useful for consuming `MDASequence`
     objects in a python runtime, but it isn't considered a "core" part of the schema.
 

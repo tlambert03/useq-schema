@@ -224,4 +224,4 @@ core.mda.run(events)
 
 This can be considered a "reference implementation" of an engine that supports useq-schema. 
 
-See [pymmcore-plus documentation](https://pymmcore-plus.github.io/pymmcore-plus/examples/mda/) for details.
+See [pymmcore-plus documentation](https://pymmcore-plus.github.io/pymmcore-plus/guides/mda_engine/) for details.

@@ -106,6 +106,8 @@ _INDEX_GENERATORS: dict[OrderMode, IndexGenerator] = {
 
 
 class TraversalOrder(Enum):
+    """Order in which random points are visited."""
+
     NEAREST_NEIGHBOR = "nearest_neighbor"
     TWO_OPT = "two_opt"
     RANDOM = "random"
